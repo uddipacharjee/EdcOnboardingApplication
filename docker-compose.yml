@@ -1,0 +1,7 @@
+services:
+  onboarding-api:
+    build: ./
+    environment:
+      - EDC_PROVIDER_MGMT_URL=http://host.docker.internal:19193/management/v3
+    ports:
+      - "8080:8080"
