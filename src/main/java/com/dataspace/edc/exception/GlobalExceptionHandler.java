@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.HttpClientErrorException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -42,5 +43,15 @@ public class GlobalExceptionHandler {
         body.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
+
+    @ExceptionHandler(org.springframework.web.client.HttpClientErrorException.class)
+    public ResponseEntity<Map<String, Object>> handleHttpClientError(HttpClientErrorException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", ex.getStatusCode().value());
+        body.put("error", "EDC request failed");
+        body.put("message", ex.getResponseBodyAsString());
+        return ResponseEntity.status(ex.getStatusCode()).body(body);
+    }
+
 }
 

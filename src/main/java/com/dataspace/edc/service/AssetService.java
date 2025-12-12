@@ -2,116 +2,99 @@ package com.dataspace.edc.service;
 
 import com.dataspace.edc.api.AssetRegistrationRequest;
 import com.dataspace.edc.api.AssetRegistrationResponse;
-import com.dataspace.edc.dto.*;
+import com.dataspace.edc.dto.AssetDto;
+import com.dataspace.edc.dto.ContractDefinitionDto;
+import com.dataspace.edc.dto.CriterionDto;
+import com.dataspace.edc.dto.PolicyDefinitionDto;
+import com.dataspace.edc.mapper.AssetEdcMapper;
+import com.dataspace.edc.mapper.OdrlPolicyBuilder;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+import static com.dataspace.edc.util.Constants.*;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AssetService {
 
     private final EdcClientService edcClient;
+    private final AssetEdcMapper assetMapper;
+    private final OdrlPolicyBuilder policyBuilder;
 
     public AssetRegistrationResponse register(AssetRegistrationRequest request) {
 
-        // -----------------------------
-        // 1) Generate IDs
-        // -----------------------------
+        validateRequest(request);
+
         String assetId = "asset-" + UUID.randomUUID();
         String policyId = "policy-" + assetId;
         String contractId = "contract-" + assetId;
 
-        // -----------------------------
-        // 2) Build EDC Asset
-        // -----------------------------
-        AssetDto assetDto = new AssetDto();
-        assetDto.setId(assetId);
+        AssetDto assetDto = assetMapper.toEdcAsset(assetId, request);
 
-        PropertiesDto props = new PropertiesDto();
-        props.setName(request.getName());
-        props.setDescription(request.getDescription());
-        props.setContenttype(request.getContentType());
-        props.setCreatedAt(Instant.now().toString());
-        AssetRegistrationRequest.AccessPolicyInput ap = request.getAccessPolicy();
-        if (ap != null) {
-            props.setAllowedCompanies(ap.getAllowedCompanies());
-            props.setUsagePurpose(ap.getUsagePurpose());
-        }
+        PolicyDefinitionDto policyDto = policyBuilder.buildPolicy(policyId, assetId, request.getAccessPolicy());
 
-        assetDto.setProperties(props);
-
-        AssetRegistrationRequest.DataAddressInput daIn = request.getDataAddress();
-        DataAddressDto da = new DataAddressDto();
-        da.setType(daIn.getType());                 // "HttpData"
-        da.setName(request.getName());              // or separate label
-        da.setBaseUrl(daIn.getBaseUrl());           // IMPORTANT: must be non-null/valid
-        da.setProxyPath("true");                    // like the samples
-
-        assetDto.setDataAddress(da);
-
+        log.info("Calling EDC: createAsset");
         AssetDto createdAsset = edcClient.createAsset(assetDto);
+        log.info("EDC asset created: edcAssetId='{}'", createdAsset.getId());
 
-        // -----------------------------
-        // 3) Build PolicyDefinition from accessPolicy
-        // -----------------------------
-        PolicyDefinitionDto policyDef = new PolicyDefinitionDto();
-        policyDef.setId(policyId);
+        log.info("Calling EDC: createPolicyDefinition");
+        PolicyDefinitionDto createdPolicy = edcClient.createPolicyDefinition(policyDto);
+        log.info("EDC policy created: policyId='{}'", createdPolicy.getId());
 
-        PolicyDto policy = new PolicyDto();
+        ContractDefinitionDto contractDef = buildContractDefinition(contractId, assetId, createdPolicy.getId());
 
-        PermissionDto permission = new PermissionDto();
-        permission.setTarget(assetId);
-        permission.setAction("USE");
+        log.info("Calling EDC: createContractDefinition");
+        edcClient.createContractDefinition(contractDef);
+        log.info("EDC contract definition created: contractId='{}'", contractId);
 
-        // optional constraint from accessPolicy
-        if (ap != null &&
-                ap.getAllowedCompanies() != null &&
-                !ap.getAllowedCompanies().isEmpty()) {
+        // 7) Return confirmation
+        log.info("Asset registration completed successfully");
 
-            ConstraintDto constraint = new ConstraintDto();
-            constraint.setLeftOperand("BusinessPartnerNumber");
-            constraint.setOperator("in");  // "in" list of BPNs
-            constraint.setRightOperand(ap.getAllowedCompanies()); // send as array
+        return AssetRegistrationResponse.builder()
+                .assetId(createdAsset.getId())
+                .status(PUBLISHED)
+                .catalogUrl(CATALOG_URL)
+                .message(SUCCESS_MSG)
+                .build();
 
-            permission.setConstraint(constraint);
+    }
+
+    private void validateRequest(AssetRegistrationRequest req) {
+        // extra rules beyond annotations
+        if (req.getDataAddress() == null) {
+            throw new IllegalArgumentException("dataAddress is required");
         }
+        String type = req.getDataAddress().getType();
+        if (type == null || (!type.equals("HttpData"))) {
+            throw new IllegalArgumentException("dataAddress.type must be 'HttpData'");
+        }
+        // uniqueness
+        if (req.getAccessPolicy() != null && req.getAccessPolicy().getAllowedCompanies() != null) {
+            var list = req.getAccessPolicy().getAllowedCompanies();
+            var unique = new java.util.HashSet<>(list);
+            if (unique.size() != list.size()) {
+                throw new IllegalArgumentException("accessPolicy.allowedCompanies contains duplicates");
+            }
+        }
+    }
 
-        policy.setPermission(List.of(permission));
-        policyDef.setPolicy(policy);
-
-        PolicyDefinitionDto createdPolicy = edcClient.createPolicyDefinition(policyDef);
-
-        // -----------------------------
-        // 4) Build ContractDefinition linking asset + policy
-        // -----------------------------
-        ContractDefinitionDto contractDef = new ContractDefinitionDto();
-        contractDef.setId(contractId);
-        contractDef.setAccessPolicyId(createdPolicy.getId());
-        contractDef.setContractPolicyId(createdPolicy.getId());
+    private ContractDefinitionDto buildContractDefinition(String contractId, String assetId, String policyId) {
+        ContractDefinitionDto cd = new ContractDefinitionDto();
+        cd.setId(contractId);
+        cd.setAccessPolicyId(policyId);
+        cd.setContractPolicyId(policyId);
 
         CriterionDto criterion = new CriterionDto();
-        // match by asset ID (this is how samples usually do it)
         criterion.setOperandLeft("asset:prop:id");
         criterion.setOperator("=");
         criterion.setOperandRight(assetId);
 
-        contractDef.setAssetsSelector(List.of(criterion));
-
-        edcClient.createContractDefinition(contractDef);
-
-        // -----------------------------
-        // 5) Return API response as in PDF
-        // -----------------------------
-        return new AssetRegistrationResponse(
-                createdAsset.getId(),
-                "published",
-                "http://localhost:8080/api/v1/catalog/search",  // or /api/catalog as in PDF
-                "Asset successfully registered and published"
-        );
+        cd.setAssetsSelector(List.of(criterion));
+        return cd;
     }
 }
