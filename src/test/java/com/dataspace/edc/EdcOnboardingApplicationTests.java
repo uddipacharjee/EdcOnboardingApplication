@@ -1,4 +1,4 @@
-package com.dataspace.edconboardingapplication;
+package com.dataspace.edc;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
