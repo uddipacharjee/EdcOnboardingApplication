@@ -52,7 +52,6 @@ public class AssetService {
         edcClient.createContractDefinition(contractDef);
         log.info("EDC contract definition created: contractId='{}'", contractId);
 
-        // 7) Return confirmation
         log.info("Asset registration completed successfully");
 
         return AssetRegistrationResponse.builder()

@@ -17,7 +17,6 @@ public class OdrlPolicyBuilder {
         pd.setId(policyId);
 
         PolicyDto policy = new PolicyDto();
-        // IMPORTANT: must be "odrl:Set" (not edc:Set)
         policy.setType("odrl:Set");
 
         PermissionDto perm = new PermissionDto();

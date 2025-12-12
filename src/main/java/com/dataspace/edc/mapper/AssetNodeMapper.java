@@ -2,16 +2,19 @@ package com.dataspace.edc.mapper;
 
 import com.dataspace.edc.api.AssetView;
 import com.fasterxml.jackson.databind.JsonNode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Component
 public class AssetNodeMapper {
 
     public AssetView toView(JsonNode assetNode) {
         if (assetNode == null || assetNode.isNull() || assetNode.isMissingNode()) {
+            log.info("Asset node is null");
             return null;
         }
 

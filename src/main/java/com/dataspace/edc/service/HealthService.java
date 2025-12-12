@@ -5,12 +5,13 @@ import com.dataspace.edc.api.HealthResponse;
 import com.dataspace.edc.dto.QuerySpecDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class HealthService {
@@ -19,24 +20,21 @@ public class HealthService {
 
     public HealthResponse getHealth() {
 
-        // 1) Check EDC Management API
         boolean mgmtUp = edcClient.isManagementApiUp();
 
-        // 2) Count assets
         long totalAssets = 0;
         try {
             QuerySpecDto spec = new QuerySpecDto();
             spec.setOffset(0);
-            spec.setLimit(1000); // adjust as needed
+            spec.setLimit(1000);
             JsonNode assets = edcClient.queryAssets(spec);
             if (assets != null && assets.isArray()) {
                 totalAssets = assets.size();
             }
         } catch (Exception ex) {
-            // leave as 0 if it fails
+            log.error(ex.getMessage(), ex);
         }
 
-        // 3) Count policy definitions
         long totalPolicies = 0;
         try {
             QuerySpecDto spec = new QuerySpecDto();
@@ -47,16 +45,14 @@ public class HealthService {
                 totalPolicies = policies.size();
             }
         } catch (Exception ex) {
-            // ignore for now
+            log.error(ex.getMessage(), ex);
         }
 
-        // 4) Build check map
         Map<String, String> checks = new HashMap<>();
         checks.put("edcManagementApi", mgmtUp ? "up" : "down");
         checks.put("policyStore", totalPolicies >= 0 ? "up" : "unknown");
-        checks.put("catalogCache", "up"); // if you have a cache, you could add a real check
+        checks.put("catalogCache", "up");
 
-        // 5) Overall status
         String overallStatus = mgmtUp ? "healthy" : "degraded";
 
         HealthResponse.Statistics stats = new HealthResponse.Statistics(

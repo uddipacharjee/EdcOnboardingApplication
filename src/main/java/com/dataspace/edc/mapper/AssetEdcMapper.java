@@ -4,10 +4,12 @@ import com.dataspace.edc.api.AssetRegistrationRequest;
 import com.dataspace.edc.dto.AssetDto;
 import com.dataspace.edc.dto.DataAddressDto;
 import com.dataspace.edc.dto.PropertiesDto;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 
+@Slf4j
 @Component
 public class AssetEdcMapper {
 
@@ -24,6 +26,8 @@ public class AssetEdcMapper {
         if (req.getAccessPolicy() != null) {
             props.setAllowedCompanies(req.getAccessPolicy().getAllowedCompanies());
             props.setUsagePurpose(req.getAccessPolicy().getUsagePurpose());
+        }else {
+            log.info("AccessPolicy is null");
         }
 
         asset.setProperties(props);

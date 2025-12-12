@@ -6,10 +6,12 @@ import com.dataspace.edc.dto.PolicyDefinitionDto;
 import com.dataspace.edc.dto.QuerySpecDto;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.http.MediaType;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EdcClientService {
@@ -71,12 +73,12 @@ public class EdcClientService {
 
     public boolean isManagementApiUp() {
         try {
-            // cheapest "ping": small QuerySpec (limit 1)
             QuerySpecDto spec = new QuerySpecDto();
             spec.setLimit(1);
             queryAssets(spec);
             return true;
         } catch (Exception ex) {
+            log.error(ex.getMessage(), ex);
             return false;
         }
     }
