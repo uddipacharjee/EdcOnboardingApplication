@@ -34,9 +34,5 @@ public class AssetDiscoveryController {
         return ResponseEntity.ok(view);
     }
 
-    @ExceptionHandler(NoSuchElementException.class)
-    public ResponseEntity<String> handleNotFound(NoSuchElementException ex) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
-    }
 }
 

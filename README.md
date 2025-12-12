@@ -19,3 +19,15 @@ To run the provider, just run the following command
 **Check Health**
 
 http://localhost:8080/api/v1/health
+
+**Swagger Link**
+
+http://localhost:8080/swagger-ui/index.html
+
+Run tests
+
+`./gradlew test`
+
+Coverage report will be generated at
+
+**build/reports/jacoco/test/html/index.html**

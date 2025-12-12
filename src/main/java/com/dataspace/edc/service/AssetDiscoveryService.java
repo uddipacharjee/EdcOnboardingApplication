@@ -39,7 +39,7 @@ public class AssetDiscoveryService {
         }
 
         int count = assets.size();
-        boolean hasNext = (count == size); // heuristic: if we got a full page, there might be more
+        boolean hasNext = (count == size);
 
         return new AssetListResponse(assets, page, size, count, hasNext);
     }
